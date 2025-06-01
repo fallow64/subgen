@@ -6,7 +6,7 @@ There are very little CLI args. Instead, you are encouraged to directly modify t
 
 ## Requirements
 
-- `torch` (for checking CUDA availability, feel free to remove and manually)
+- `torch` (package)
     - Note: `torch` is only used for checking CUDA availability, and is only used within the first few lines of `subgen.py`. Feel free to remove and manually change the options.
 - `ffmpeg` (system)
 - `whisperx` (system)
