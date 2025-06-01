@@ -4,11 +4,14 @@ import torch
 import sys
 
 
+# The WhisperX model to use. See https://huggingface.co/guillaumekln for available models.
 model: str                  = "medium"
-compute_type: str           = "float32"
+# Compute type can be "float16", "float32", or "int8". If you are limited by memory, using "int8" can help, but it may reduce accuracy.
+compute_type: str           = "float16" if torch.cuda.is_available() else "float32"
 device: str                 = "cuda" if torch.cuda.is_available() else "cpu"
 output_format: str          = "srt"
-language: str | None        = "de"
+# If language is None, WhisperX will auto-detect the language based on the first 30 seconds of audio.
+language: str | None        = None
 
 
 def is_audio_ext(ext: str):
@@ -63,10 +66,11 @@ def transcribe_with_whisperx(audio_path: str):
     
     cmd = ["whisperx", audio_path]
     cmd.extend(["--model", model])
-    cmd.extend(["--compute_type", compute_type])
     cmd.extend(["--output_dir", output_dir])
     cmd.extend(["--device", device])
     cmd.extend(["--output_format", output_format])
+    if compute_type:
+        cmd.extend(["--compute_type", compute_type])
     if language:
         cmd.extend(["--language", language])
     
