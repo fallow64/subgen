@@ -13,4 +13,4 @@ A very simple Python CLI utility to transcribe audio/video files into a .srt fil
 
 ## Notes
 
-On AMD GPUs, transcribing via the GPU (i.e. using ROCm) is very *very* shakey. Unless you know exactly what you're doing, I would advice just setting the device to c
+On AMD GPUs, transcribing via the GPU (i.e. using ROCm) is very *very* shakey. Unless you know exactly what you're doing, I would advise you set the `--device=cpu`.
