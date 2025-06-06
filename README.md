@@ -1,14 +1,16 @@
 # subgen.py
 
-A very simple Python script to transcribe audio/video files into a .srt file.
-
-There are no CLI args. Instead, you are encouraged to directly modify the script yourself.
+A very simple Python CLI utility to transcribe audio/video files into a .srt file.
 
 ## Requirements
 
 - `torch` (package)
-    - Note: `torch` is only used for checking CUDA availability, and is only used within the first few lines of `subgen.py`. Feel free to remove and manually change the options.
+    - Note: only for automatic detection of CUDA. If CLI args are specified, torch is not imported.
 - `ffmpeg` (system)
 - `whisperx` (system)
     - Note: this does not use the python package, but instead it's CLI.
     - Install via `pip install whisperx`, and ensure that it's added to your system PATH.
+
+## Notes
+
+On AMD GPUs, transcribing via the GPU (i.e. using ROCm) is very *very* shakey. Unless you know exactly what you're doing, I would advice just setting the device to c

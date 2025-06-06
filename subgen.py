@@ -1,25 +1,34 @@
+import argparse
 import os
 import subprocess
-import torch
 import sys
+from dataclasses import dataclass
 
 
-# The WhisperX model to use. See https://huggingface.co/guillaumekln for available models.
-model: str                  = "medium"
-# Compute type can be "float16", "float32", or "int8". If you are limited by memory, using "int8" can help, but it may reduce accuracy.
-compute_type: str           = "float16" if torch.cuda.is_available() else "float32"
-device: str                 = "cuda" if torch.cuda.is_available() else "cpu"
-output_format: str          = "srt"
-# If language is None, WhisperX will auto-detect the language based on the first 30 seconds of audio.
-language: str | None        = None
+# The base command to run WhisperX. For example, you could change this to `["uvx whisperx"]`.
+base_cmd = ["whisperx"]
+
+# Configuration from the CLI.
+@dataclass
+class Config:
+    files: list[str]
+    force: bool
+
+    model: str
+    output_format: str
+    device: str | None
+    language: str | None
+    compute_type: str | None
 
 
 def is_audio_ext(ext: str):
+    """Check if the file extension is a common audio format."""
     audio_extensions = [".mp3", ".m4a", ".wav", ".flac", ".aac", ".ogg"]
     return ext.lower() in audio_extensions
 
 
 def is_video_ext(ext: str):
+    """Check if the file extension is a common video format."""
     video_extensions = [".mp4", ".mkv", ".avi", ".mov"]
     return ext.lower() in video_extensions
 
@@ -30,18 +39,18 @@ def convert_to_mp3(input_path: str):
     base, ext = os.path.splitext(input_path)
     if is_audio_ext(ext):
         # File is already an mp3, continue
+        print(f"Existing audio file: {input_path}")
         return input_path
     elif is_video_ext(ext):
         # Convert video file to mp3
         mp3_path = base + ".mp3"
 
-        if os.path.exists(mp3_path):
-            if os.path.getmtime(mp3_path) > os.path.getmtime(input_path):
+        if os.path.exists(mp3_path) and os.path.getmtime(mp3_path) > os.path.getmtime(input_path):
                 # If the mp3 was last updated after the mp4, it's up-to-date so use that
-                print(f"Using existing audio file: {mp3_path}")
+                print(f"Existing associated audio file: {mp3_path}")
                 return mp3_path
         
-        # Convert mp4 or mkv to mp3 using ffmpeg
+        # Convert video to audio using ffmpeg
         print(f"Converting {input_path} to mp3...")
         cmd = ["ffmpeg", "-y", "-i", input_path, "-vn", "-acodec", "libmp3lame", mp3_path]
         subprocess.run(cmd, check=True)
@@ -51,41 +60,84 @@ def convert_to_mp3(input_path: str):
         raise ValueError("Unsupported file type. Only video and audio files are supported.")
 
 
-def transcribe_with_whisperx(audio_path: str):
+def transcribe_with_whisperx(audio_path: str, options: Config):
     """Transcribe the given audio file using WhisperX."""
 
     output_dir = os.path.dirname(os.path.abspath(audio_path))
     base_name, _ = os.path.splitext(os.path.basename(audio_path))
-    output_file = os.path.join(output_dir, base_name + "." + output_format)
+    output_file = os.path.join(output_dir, base_name + "." + options.output_format)
 
-    if os.path.exists(output_file) and (os.path.getmtime(output_file) > os.path.getmtime(audio_path)):
-        print(f"Output file {output_file} already exists and is up-to-date. Skipping transcription.")
+    up_to_date = os.path.exists(output_file) and (os.path.getmtime(output_file) > os.path.getmtime(audio_path))
+    if up_to_date and (not options.force):
+        print(f"Skipping {output_file}, up-to-date.")
         return output_file
 
     print("Output Directory: " + output_dir)
     
-    cmd = ["whisperx", audio_path]
-    cmd.extend(["--model", model])
+    cmd = base_cmd.copy()
+
+    # For each field in WhisperXConfig, add the corresponding command line argument
+    cmd.extend(["--model", options.model])
+    cmd.extend(["--output_format", options.output_format])
+    if options.language:
+        cmd.extend(["--language", options.language])
+    if options.device:
+        cmd.extend(["--device", options.device])
+    if options.compute_type:
+        cmd.extend(["--compute_type", options.compute_type])
+
     cmd.extend(["--output_dir", output_dir])
-    cmd.extend(["--device", device])
-    cmd.extend(["--output_format", output_format])
-    if compute_type:
-        cmd.extend(["--compute_type", compute_type])
-    if language:
-        cmd.extend(["--language", language])
+    cmd.append(audio_path)
     
+    print(f"Running command: {' '.join(cmd)}")
     res = subprocess.run(cmd, check=False)
     if res.returncode == 127:
-        print("Error: 'whisperx' command not found. Please ensure WhisperX is installed and available in your PATH.")
+        print("Error: Command not found. Please ensure WhisperX is installed and available in your PATH.")
         sys.exit(1)
     elif res.returncode != 0:
         print(f"Error: WhisperX transcription failed with return code {res.returncode}. Please check the input file and stderr.")
         sys.exit(1)
     else:
-        print(f"Transcription completed successfully for {audio_path}. Output saved in {output_dir}.")
+        print(f"Transcription successful. Output saved to {output_file}.")
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Transcribe audio and video files to subtitles using WhisperX.")
+    parser.add_argument("--model", type=str, default=None, help="WhisperX model to use (default: small)")
+    parser.add_argument("--output_format", type=str, default=None, help="Output subtitle format (default: srt)")
+    parser.add_argument("--language", type=str, default=None, help="Language of the audio (default: auto-detect, slower and error-prone)")
+    parser.add_argument("--device", type=str, default=None, help="Device to use for transcription (default: cuda if available, otherwise cpu)")
+    parser.add_argument("--compute_type", type=str, default=None, help="Compute type for transcription (default: float16 if cuda is available, otherwise int8)")
+    parser.add_argument("--force", action="store_true", help="Force transcription even if output file already exists and is up-to-date")
+    parser.add_argument("files", nargs="+", help="Audio or video files, or directories containing such files")
+    
+    # Parse the arguments, provide default values if not specified
+    args = parser.parse_args()
+    if args.model is None:
+        args.model = "small"
+    if args.output_format is None:
+        args.output_format = "srt"
+    if args.device is None:
+        # Note: importing torch here to avoid unnecessary dependency if not using GPU
+        # although technically whisperx already depends on torch
+        import torch
+        args.device = "cuda" if torch.cuda.is_available() else "cpu"
+    if args.compute_type is None:
+        import torch
+        args.compute_type = "float16" if torch.cuda.is_available() else "int8"
+
+    # Create WhisperXConfig from parsed arguments
+    options: Config = Config(
+        files=args.files,
+        force=args.force,
+        model=args.model,
+        output_format=args.output_format,
+        device=args.device,
+        language=args.language,
+        compute_type=args.compute_type
+    )
+
+    # The list holding all file paths to video/audio files
     file_paths = []
 
     def add_folder_files(folder: str):
@@ -103,41 +155,23 @@ def main():
         if is_audio_ext(ext) or is_video_ext(ext):
             file_paths.append(file)
 
-    if len(sys.argv) != 1:
-        # Command line arguments provided
-        for arg in sys.argv[1:]:
-            if os.path.isfile(arg):
-                add_file(arg)
-            elif os.path.isdir(arg):
-                add_folder_files(arg)
-            else:
-                print(f"Warning: {arg} is not a valid file or directory. Skipping.")
-    else:
-        # No command line arguments, prompt the user for input
-        input_paths = input("Enter the paths of the video/audio files to transcribe (separated by spaces, or leave empty for current directory): ").strip().split()
-
-        if len(input_paths) == 0:
-            # Use the current working directory
-            print("No input paths provided. Using the current working directory.")
-            current_dir = os.getcwd()
-            add_folder_files(current_dir)
+    # Files/directories provided
+    for file in options.files:
+        if os.path.isfile(file):
+            add_file(file)
+        elif os.path.isdir(file):
+            add_folder_files(file)
         else:
-            # User provided paths
-            for input_path in input_paths:
-                # Check if the input path is a file or directory
-                if os.path.isfile(input_path):
-                    add_file(input_path)
-                elif os.path.isdir(input_path):
-                    add_folder_files(input_path)
+            print(f"Invalid path: {file} is not a valid file or directory.")
 
+    if len(file_paths) == 0:
+        # While the user can't provide no files, they can provide a folder with no valid files (or fake files)
+        print("No valid audio or video files found. Please provide valid files or directories containing audio/video files.")
+        sys.exit(1)
 
     for file_path in file_paths:
-        try:
-            mp3_path = convert_to_mp3(file_path)
-            transcribe_with_whisperx(mp3_path)
-        except Exception as e:
-            print(f"Error: {e}")
-            sys.exit(1)
+        mp3_path = convert_to_mp3(file_path)
+        transcribe_with_whisperx(mp3_path, options)
 
 
 if __name__ == "__main__":
