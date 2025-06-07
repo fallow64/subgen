@@ -1,5 +1,7 @@
 import os
+import urllib
 from dataclasses import dataclass
+import urllib.parse
 
 
 @dataclass
@@ -10,6 +12,8 @@ class Config:
     base_cmd: list[str]
     locations: list[str]
     force: bool
+    download_dir: str | None
+    output_dir: str | None
     
     # Local video config
     audio_track: int | None
@@ -25,27 +29,21 @@ class Config:
     compute_type: str | None
 
 
-def is_audio_file(path: str):
-    """Check if the file is a common audio format."""
+def is_file_whisper_compatible(path: str):
+    """Check if the file is an audio/video format supported by Whisper natively."""
     
     if os.path.isfile(path):
+        # todo: probably restrict this, or have a comprehensive list of actual supported formats instead of guessing
         _, ext = os.path.splitext(path)
-        audio_extensions = [".mp3", ".m4a", ".wav", ".flac", ".aac", ".ogg", ".opus"]
-        return ext.lower() in audio_extensions
-    return False
-
-
-
-def is_video_file(path: str):
-    """Check if the file is a common video format."""
-    
-    if os.path.isfile(path):
-        _, ext = os.path.splitext(path)
-        video_extensions = [".mp4", ".mkv", ".avi", ".mov", ".flv", ".webm"]
-        return ext.lower() in video_extensions
+        whisper_extensions = [".mp3", ".mp4", ".mpeg", ".mpga", ".m4a", ".wav", ".webm", ".flac", ".aac", ".ogg", ".opus", ".mkv", ".avi", ".mov", ".flv"]
+        return ext.lower() in whisper_extensions
     return False
 
 
 def is_youtube_url(url: str):
     """Check if the URL is a YouTube URL."""
-    return "youtube.com/watch" in url or "youtu.be" in url or "youtube.com/shorts" in url
+    youtube_domains = ["youtube.com", "youtu.be"]
+    
+    parsed = urllib.parse.urlparse(url)
+    netloc = parsed.netloc.lower()
+    return any((domain in netloc) for domain in youtube_domains)

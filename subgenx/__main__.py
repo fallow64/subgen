@@ -14,6 +14,8 @@ def main():
     general = parser.add_argument_group("General Options")
     general.add_argument("-h", "--help", action="help", help="Show this help message and exit")
     general.add_argument("-f", "--force", action="store_true", help="Force transcription even if output subtitles already exist and is up-to-date")
+    general.add_argument("-d", "--download_dir", type=str, default=None, help="Directory to download YouTube videos to (default: current directory)")
+    general.add_argument("-o", "--output_dir", type=str, default=None, help="Directory to save output subtitles to (default: alongside the audio files)")
     
     whisper = parser.add_argument_group("WhisperX Options")
     whisper.add_argument("--model", type=str, default="small", help="WhisperX model to use (default: small)")
@@ -42,6 +44,8 @@ def main():
         base_cmd=["whisperx"],
         locations=args.locations,
         force=args.force,
+        download_dir=args.download_dir,
+        output_dir=args.output_dir,
         yt_video=args.yt_video,
         model=args.model,
         output_format=args.output_format,

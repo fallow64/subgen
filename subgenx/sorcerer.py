@@ -2,7 +2,7 @@ import os
 import subprocess
 from abc import ABC, abstractmethod
 
-from subgenx.util import Config, is_audio_file, is_video_file, is_youtube_url
+from subgenx.util import Config, is_file_whisper_compatible, is_youtube_url
 
 
 class Source(ABC):
@@ -25,47 +25,13 @@ class Source(ABC):
         pass
 
 
-class AudioSource(Source):
+class BaseSource(Source):
     def can_handle(self, location: str, config: Config) -> bool:
-        return is_audio_file(location)
+        return is_file_whisper_compatible(location)
 
     def handle(self, location: str, config: Config) -> str:
         # If the location is an audio file, return it as is
         return location
-
-
-class VideoSource(Source):
-    def can_handle(self, location: str, config: Config) -> bool:
-        return is_video_file(location)
-
-    def handle(self, location: str, config: Config) -> str | None:
-        base, _ = os.path.splitext(location)
-
-        # Convert video file to mp3
-        mp3_path = base + ".mp3"
-
-        if os.path.exists(mp3_path) and os.path.getmtime(mp3_path) > os.path.getmtime(location):
-            # If the mp3 was last updated after the mp4, it's up-to-date so use that
-            # todo: this could be the wrong audio track or something? better handling needed
-            print(f"Existing associated audio file: {mp3_path}")
-            return mp3_path
-
-        # Convert video to audio using ffmpeg
-        print(f"Converting {location} to mp3...")
-
-        cmd = ["ffmpeg", "-y"]  # -y to overwrite existing files
-        cmd.extend(["-i", location])  # input file
-        if config.audio_track is not None:
-            # select the specified audio track
-            cmd.extend(["-map", f"0:a:{config.audio_track}"])
-        cmd.extend(["-acodec", "libmp3lame"])  # use the mp3 codec
-        cmd.extend(["-ab", "192k"])  # set bitrate to 192kbps
-        cmd.append("-vn")  # no video
-        cmd.append(mp3_path)  # output file
-
-        subprocess.run(cmd, check=True)
-
-        return mp3_path
 
 
 class DirectorySource(Source):
@@ -78,7 +44,8 @@ class DirectorySource(Source):
         for root, _, files in os.walk(location):
             for file in files:
                 full_path = os.path.join(root, file)
-                if is_audio_file(full_path) or is_video_file(full_path):
+                # If the file is compatible with Whisper, add it to the list
+                if is_file_whisper_compatible(full_path):
                     audio_files.append(full_path)
 
         # If there is only one audio file, return it as a string
@@ -99,25 +66,20 @@ class YoutubeSource(Source):
         ydl_opts = {
             "outtmpl": "%(title)s.%(ext)s",
             "windowsfilenames": True,  # Ensure Windows compatibility
+            "restrictfilenames": True,  # Restrict filenames to only ASCII characters
         }
+        
+        if config.download_dir:
+            # If a download directory is specified, set it as the "home" directory
+            ydl_opts["paths"] = {"home": config.download_dir}
         
         if config.yt_video:
             # If the user wants to download the video instead of just the audio
             ydl_opts["format"] = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
-            ydl_opts["postprocessors"] = [{
-                "key": "FFmpegVideoConvertor",
-                "preferedformat": "mp4",
-            }]
         else:            
             # Only download the audio
             ydl_opts["format"] = "bestaudio[ext=m4a]/bestaudio/best"
             ydl_opts["extractaudio"] = True  # Download only the audio
-            # ydl_opts["audioformat"] = "mp3"  # Convert to mp3
-            # ydl_opts["postprocessors"] = [{
-            #     "key": "FFmpegExtractAudio",
-            #     "preferredcodec": "mp3",
-            #     "preferredquality": "192",
-            # }]
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(location, download=True)
@@ -129,8 +91,7 @@ class YoutubeSource(Source):
 class Sorcerer:
     def __init__(self, config: Config):
         self.config = config
-        self.sources = [AudioSource(),
-                        VideoSource(),
+        self.sources = [BaseSource(),
                         YoutubeSource(),
                         DirectorySource()]
 
