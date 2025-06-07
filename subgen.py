@@ -13,6 +13,7 @@ base_cmd = ["whisperx"]
 class Config:
     files: list[str]
     force: bool
+    audio_track: int | None
 
     model: str
     output_format: str
@@ -33,7 +34,7 @@ def is_video_ext(ext: str):
     return ext.lower() in video_extensions
 
 
-def convert_to_mp3(input_path: str):
+def convert_to_mp3(input_path: str, options: Config):
     """Convert the input file to mp3 if it is a video file, or return the path if it is already an audio file."""
 
     base, ext = os.path.splitext(input_path)
@@ -52,7 +53,16 @@ def convert_to_mp3(input_path: str):
         
         # Convert video to audio using ffmpeg
         print(f"Converting {input_path} to mp3...")
-        cmd = ["ffmpeg", "-y", "-i", input_path, "-vn", "-acodec", "libmp3lame", mp3_path]
+
+        cmd = ["ffmpeg", "-y"] # -y to overwrite existing files
+        cmd.extend(["-i", input_path]) # input file
+        if options.audio_track is not None:
+            cmd.extend(["-map", f"0:a:{options.audio_track}"]) # select the specified audio track
+        cmd.extend(["-acodec", "libmp3lame"]) # use the mp3 codec
+        cmd.extend(["-ab", "192k"]) # set bitrate to 192kbps
+        cmd.append("-vn") # no video
+        cmd.append(mp3_path) # output file
+
         subprocess.run(cmd, check=True)
 
         return mp3_path
@@ -109,6 +119,7 @@ def main():
     parser.add_argument("--device", type=str, default=None, help="Device to use for transcription (default: cuda if available, otherwise cpu)")
     parser.add_argument("--compute_type", type=str, default=None, help="Compute type for transcription (default: float16 if cuda is available, otherwise int8)")
     parser.add_argument("--force", action="store_true", help="Force transcription even if output file already exists and is up-to-date")
+    parser.add_argument("--audio_track", type=int, default=None, help="Audio track to use for video files (default: 0, the first audio track)")
     parser.add_argument("files", nargs="+", help="Audio or video files, or directories containing such files")
     
     # Parse the arguments, provide default values if not specified
@@ -134,7 +145,8 @@ def main():
         output_format=args.output_format,
         device=args.device,
         language=args.language,
-        compute_type=args.compute_type
+        compute_type=args.compute_type,
+        audio_track=args.audio_track
     )
 
     # The list holding all file paths to video/audio files
@@ -170,7 +182,7 @@ def main():
         sys.exit(1)
 
     for file_path in file_paths:
-        mp3_path = convert_to_mp3(file_path)
+        mp3_path = convert_to_mp3(file_path, options)
         transcribe_with_whisperx(mp3_path, options)
 
 

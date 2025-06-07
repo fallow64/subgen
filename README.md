@@ -5,7 +5,7 @@ A very simple Python CLI utility to transcribe audio/video files into a .srt fil
 ## Requirements
 
 - `torch` (package)
-    - Note: only for automatic detection of CUDA. If CLI args are specified, torch is not imported.
+    - Note: only for automatic detection of CUDA. If the correct CLI args are specified, torch is not imported.
 - `ffmpeg` (system)
 - `whisperx` (system)
     - Note: this does not use the python package, but instead it's CLI.
@@ -13,4 +13,4 @@ A very simple Python CLI utility to transcribe audio/video files into a .srt fil
 
 ## Notes
 
-On AMD GPUs, transcribing via the GPU (i.e. using ROCm) is very *very* shakey. Unless you know exactly what you're doing, I would advise you set the `--device=cpu`.
+On AMD GPUs, transcribing via the GPU (i.e. using ROCm) is very *very* shakey. Unless you know exactly what you're doing (and even then), I would advise you set the device to CPU (i.e. `--device=cpu`).
