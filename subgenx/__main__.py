@@ -8,15 +8,23 @@ from subgenx.util import Config
 
 def main():
     # fmt: off
-    parser = argparse.ArgumentParser(description="Transcribe audio and video files to subtitles using WhisperX.")
-    parser.add_argument("--model", type=str, default="small", help="WhisperX model to use (default: small)")
-    parser.add_argument("--output_format", type=str, default="srt", help="Output subtitle format (default: srt)")
-    parser.add_argument("--language", type=str, default=None, help="Language of the audio (default: auto-detect, slower and error-prone)")
-    parser.add_argument("--device", type=str, default=None, help="Device to use for transcription (default: cuda if available, otherwise cpu)")
-    parser.add_argument("--compute_type", type=str, default=None, help="Compute type for transcription (default: float16 if cuda is available, otherwise int8)")
-    parser.add_argument("-f", "--force", action="store_true", help="Force transcription even if output file already exists and is up-to-date")
-    parser.add_argument("--audio_track", type=int, default=None, help="Audio track to use for video files (default: 0, the first audio track)")
+    parser = argparse.ArgumentParser(description="Transcribe audio and video files to subtitles using WhisperX.", add_help=False)
     parser.add_argument("locations", nargs="+", help="The locations of audio or video files. Can also be a folder containing audio/video files.")
+    
+    general = parser.add_argument_group("General Options")
+    general.add_argument("-h", "--help", action="help", help="Show this help message and exit")
+    general.add_argument("-f", "--force", action="store_true", help="Force transcription even if output subtitles already exist and is up-to-date")
+    
+    whisper = parser.add_argument_group("WhisperX Options")
+    whisper.add_argument("--model", type=str, default="small", help="WhisperX model to use (default: small)")
+    whisper.add_argument("--output_format", type=str, default="srt", help="Output subtitle format (default: srt)")
+    whisper.add_argument("--language", type=str, default=None, help="Language of the audio (default: auto-detect, slower and error-prone)")
+    whisper.add_argument("--device", type=str, default=None, help="Device to use for transcription (default: cuda if available, otherwise cpu)")
+    whisper.add_argument("--compute_type", type=str, default=None, help="Compute type for transcription (default: float16 if cuda is available, otherwise int8)")
+    
+    sourcing = parser.add_argument_group("Sourcing Options")
+    sourcing.add_argument("--audio_track", type=int, default=None, help="Audio track to use for video files (default: 0, the first audio track)")
+    sourcing.add_argument("--yt_video", action="store_true", help="Download YouTube video files instead of just audio (default: false)")
 
     # Parse the arguments, provide default values if not specified
     args = parser.parse_args()
@@ -34,8 +42,7 @@ def main():
         base_cmd=["whisperx"],
         locations=args.locations,
         force=args.force,
-        yt_download_video=False,  # Not implemented in this script
-        yt_download_subtitles=False,  # Not implemented in this script
+        yt_video=args.yt_video,
         model=args.model,
         output_format=args.output_format,
         device=args.device,
@@ -48,7 +55,7 @@ def main():
     file_paths = []
 
     sorcerer = Sorcerer(config)
-    # Files/directories provided
+    # Files/directories/locations provided
     for file in config.locations:
         result = sorcerer.handle_location(file)
 

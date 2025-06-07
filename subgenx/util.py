@@ -11,13 +11,13 @@ class Config:
     locations: list[str]
     force: bool
     
-    # Local vidoe config
+    # Local video config
     audio_track: int | None
     
     # Youtube config
-    yt_download_video: bool
-    yt_download_subtitles: bool
+    yt_video: bool
 
+    # WhisperX config
     model: str
     output_format: str
     device: str | None

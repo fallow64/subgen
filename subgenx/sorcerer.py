@@ -15,11 +15,11 @@ class Source(ABC):
     def handle(self, location: str, config: Config) -> str | list[str] | None:
         """
         Handle the location and return the path to the audio file.
-        
+
         If the source returns a string, it is a single audio file.
-        
+
         If it returns a list, it a list of further locations to source.
-        
+
         If it returns None, it means the source could not handle the location.
         """
         pass
@@ -40,7 +40,7 @@ class VideoSource(Source):
 
     def handle(self, location: str, config: Config) -> str | None:
         base, _ = os.path.splitext(location)
-        
+
         # Convert video file to mp3
         mp3_path = base + ".mp3"
 
@@ -68,35 +68,6 @@ class VideoSource(Source):
         return mp3_path
 
 
-class YoutubeSource(Source):
-    def can_handle(self, location: str, config: Config) -> bool:
-        return is_youtube_url(location)
-
-    def handle(self, location: str, config: Config) -> str | None:
-        # Use youtube-dl to download the audio from the YouTube link
-        import yt_dlp
-        
-        #todo: option to download video instead of audio
-        
-        print(f"Downloading audio from YouTube: {location}")
-        ydl_opts = {
-            "format": "bestaudio/best",
-            "extractaudio": True,
-            "audioformat": "mp3",
-            "outtmpl": "%(title)s.%(ext)s",
-            "postprocessors": [{
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "192",
-            }],
-        }
-        
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(location, download=True)
-            audio_file = ydl.prepare_filename(info)
-            return audio_file
-
-
 class DirectorySource(Source):
     def can_handle(self, location: str, config: Config) -> bool:
         return os.path.isdir(location)
@@ -109,25 +80,68 @@ class DirectorySource(Source):
                 full_path = os.path.join(root, file)
                 if is_audio_file(full_path) or is_video_file(full_path):
                     audio_files.append(full_path)
-        
+
         # If there is only one audio file, return it as a string
         # Otherwise return the list of audio files (empty list if none found)
         return audio_files[0] if len(audio_files) == 1 else audio_files
 
 
+class YoutubeSource(Source):
+    def can_handle(self, location: str, config: Config) -> bool:
+        return is_youtube_url(location)
+
+    def handle(self, location: str, config: Config) -> str | None:
+        # Use yt_dlp to download the audio from the YouTube link
+        import yt_dlp
+
+        print(f"Downloading audio from YouTube: {location}")
+        
+        ydl_opts = {
+            "outtmpl": "%(title)s.%(ext)s",
+            "windowsfilenames": True,  # Ensure Windows compatibility
+        }
+        
+        if config.yt_video:
+            # If the user wants to download the video instead of just the audio
+            ydl_opts["format"] = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+            ydl_opts["postprocessors"] = [{
+                "key": "FFmpegVideoConvertor",
+                "preferedformat": "mp4",
+            }]
+        else:            
+            # Only download the audio
+            ydl_opts["format"] = "bestaudio[ext=m4a]/bestaudio/best"
+            ydl_opts["extractaudio"] = True  # Download only the audio
+            # ydl_opts["audioformat"] = "mp3"  # Convert to mp3
+            # ydl_opts["postprocessors"] = [{
+            #     "key": "FFmpegExtractAudio",
+            #     "preferredcodec": "mp3",
+            #     "preferredquality": "192",
+            # }]
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(location, download=True)
+            audio_file = ydl.prepare_filename(info)
+            print(audio_file)
+            return audio_file
+
+
 class Sorcerer:
     def __init__(self, config: Config):
         self.config = config
-        self.sources = [AudioSource(), VideoSource(), YoutubeSource(), DirectorySource()]
+        self.sources = [AudioSource(),
+                        VideoSource(),
+                        YoutubeSource(),
+                        DirectorySource()]
 
     def handle_location(self, location: str) -> list[str] | None:
         results = []
         location_queue = [location]
-        
+
         while len(location_queue) > 0:
             current_location = location_queue.pop(0)
             result = self._handle_single_location(current_location)
-            
+
             if result is not None:
                 if isinstance(result, str):
                     results.append(result)
@@ -135,19 +149,18 @@ class Sorcerer:
                     location_queue.extend(result)
 
         return results if results else None
-                    
+
     def _handle_single_location(self, location: str) -> str | list[str] | None:
         for source in self.sources:
             if source.can_handle(location, self.config):
                 # location_result can be a single audio file path, a list of further locations, or None
                 location_result = source.handle(location, self.config)
-                
+
                 if location_result is None:
                     continue
-                
+
                 # location_result can be a string (single file) or a list (multiple loations to check further)
                 return location_result
 
         # No source could handle the location
-        return None                
-        
+        return None
