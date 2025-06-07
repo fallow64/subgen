@@ -1,0 +1,20 @@
+[project]
+name = "subgenx"
+version = "0.0.1"
+authors = [{ name = "fallow64", email = "fallow640@example.com" }]
+description = "A command-line utility for generating subtitles from audio or video sources."
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+]
+license = "MIT"
+license-files = ["LICENSE"]
+
+[project.urls]
+Homepage = "https://github.com/fallow64/subgenx"
+Issues = "https://github.com/fallow64/subgenx/issues"
+
+[project.scripts]
+subgenx = "subgenx.__main__:main"
