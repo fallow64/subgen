@@ -1,7 +1,7 @@
 import os
 import urllib
-from dataclasses import dataclass
 import urllib.parse
+from dataclasses import dataclass
 
 
 @dataclass
@@ -10,6 +10,7 @@ class Config:
     
     # General config
     force: bool
+    verbose: bool
     download_dir: str
     output_dir: str | None
     

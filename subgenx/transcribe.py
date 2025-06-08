@@ -61,7 +61,7 @@ def get_writer(output_format: str, output_dir: str) -> wx_utils.ResultWriter:
 def transcribe_with_whisperx(audio_path: str, options: Config):
     """Transcribe the given audio file using WhisperX."""
 
-    output_dir = options.output_dir if options.output_dir else os.path.dirname(audio_path)
+    output_dir = options.output_dir or os.path.dirname(audio_path)
     base_name, _ = os.path.splitext(os.path.basename(audio_path))
     output_file = os.path.join(output_dir, base_name + "." + options.output_format)
 
@@ -73,17 +73,28 @@ def transcribe_with_whisperx(audio_path: str, options: Config):
     print("Output Directory: " + output_dir)
     
     # 1. Transcribe with original whisper (batched)
-    model_dir = os.path.expanduser("~/.cache/whisper")
+    model_dir = os.path.join(os.path.expanduser("~"), ".cache", "whisper")
     model = whisperx.load_model(
         options.model,
         options.device,
         compute_type=options.compute_type,
         download_root=model_dir,
+        vad_options={
+            "chunk_size": 30,
+            "vad_onset": 0.500,
+            "vad_offset": 0.363,
+        },
+        threads=4,
     )
     
     audio = load_audio(audio_path, options.audio_track or 0)
-    result = model.transcribe(audio, language=options.language, batch_size=16)
-    result_language = result.get("language", options.language)
+    result = model.transcribe(
+        audio,
+        language=options.language,
+        verbose=options.verbose,
+        batch_size=8,
+        chunk_size=30,
+    )
     
     # delete model
     gc.collect()
@@ -92,16 +103,17 @@ def transcribe_with_whisperx(audio_path: str, options: Config):
     
     # 2. Align whisper output
     model_a, metadata = whisperx.load_align_model(
-        language_code=result_language,
+        language_code=result["language"] or options.language,
         device=options.device,
     )
-    result = whisperx.align(
+    result_aligned = whisperx.align(
         result["segments"],
         model_a,
         metadata,
         audio,
         options.device,
         return_char_alignments=False,
+        interpolate_method="nearest",
     )
     
     # delete model
@@ -110,8 +122,8 @@ def transcribe_with_whisperx(audio_path: str, options: Config):
     del model_a
     
     # WhisperX align for some reason doesn't include langauge tag which is needed for get_writer in return for result
-    if "language" not in result:
-        result["language"] = result_language
+    if "language" not in result_aligned:
+        result_aligned["language"] = result["language"] or options.language
     
     # 3. Save the result
     writer_opts = {
@@ -123,5 +135,5 @@ def transcribe_with_whisperx(audio_path: str, options: Config):
 
     with open(output_file, "w", encoding="utf-8") as f:
         writer = get_writer(options.output_format, output_dir)
-        writer.write_result(result, f, writer_opts)
+        writer.write_result(result_aligned, f, writer_opts)
         f.write("Transcription complete. Output saved to: " + output_file + "\n")

@@ -15,8 +15,9 @@ def main():
     general = parser.add_argument_group("General Options")
     general.add_argument("-h", "--help", action="help", help="Show this help message and exit")
     general.add_argument("-f", "--force", action="store_true", help="Force transcription even if output subtitles already exist and is up-to-date")
-    general.add_argument("-d", "--download_dir", type=str, default=None, help="Directory to download YouTube videos to (default: current directory)")
-    general.add_argument("-o", "--output_dir", type=str, default=".", help="Directory to save output subtitles to (default: alongside the audio files)")
+    general.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
+    general.add_argument("-d", "--download_dir", type=str, default=".", help="Directory to download YouTube videos to (default: current directory)")
+    general.add_argument("-o", "--output_dir", type=str, default=None, help="Directory to save output subtitles to (default: alongside the audio files)")
     
     whisper = parser.add_argument_group("WhisperX Options")
     whisper.add_argument("--model", type=str, default="small", help="WhisperX model to use (default: small)")
@@ -32,8 +33,6 @@ def main():
     # Parse the arguments, provide default values if not specified
     args = parser.parse_args()
     if args.device is None:
-        # Note: importing torch here to avoid unnecessary dependency if not using GPU
-        # although technically whisperx already depends on torch
         args.device = "cuda" if torch.cuda.is_available() else "cpu"
     if args.compute_type is None:
         args.compute_type = "float16" if torch.cuda.is_available() else "int8"
@@ -41,6 +40,7 @@ def main():
     # Create Config from parsed arguments
     config = Config(
         force=args.force,
+        verbose=args.verbose,
         download_dir=args.download_dir,
         output_dir=args.output_dir,
         include_video=args.include_video,
