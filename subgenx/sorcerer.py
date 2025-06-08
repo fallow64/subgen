@@ -1,5 +1,5 @@
 import os
-import subprocess
+import yt_dlp
 from abc import ABC, abstractmethod
 
 from subgenx.util import Config, is_file_whisper_compatible, is_youtube_url
@@ -58,20 +58,14 @@ class YoutubeSource(Source):
         return is_youtube_url(location)
 
     def handle(self, location: str, config: Config) -> str | None:
-        # Use yt_dlp to download the audio from the YouTube link
-        import yt_dlp
-
         print(f"Downloading audio from YouTube: {location}")
         
         ydl_opts = {
             "outtmpl": "%(title)s.%(ext)s",
             "windowsfilenames": True,  # Ensure Windows compatibility
             "restrictfilenames": True,  # Restrict filenames to only ASCII characters
+            "paths": {"home": config.output_dir},
         }
-        
-        if config.download_dir:
-            # If a download directory is specified, set it as the "home" directory
-            ydl_opts["paths"] = {"home": config.download_dir}
         
         if config.include_video:
             # If the user wants to download the video instead of just the audio

@@ -1,5 +1,6 @@
 import argparse
 import sys
+import torch
 
 from subgenx.sorcerer import Sorcerer
 from subgenx.transcribe import transcribe_with_whisperx
@@ -33,16 +34,12 @@ def main():
     if args.device is None:
         # Note: importing torch here to avoid unnecessary dependency if not using GPU
         # although technically whisperx already depends on torch
-        import torch
         args.device = "cuda" if torch.cuda.is_available() else "cpu"
     if args.compute_type is None:
-        import torch
         args.compute_type = "float16" if torch.cuda.is_available() else "int8"
 
     # Create Config from parsed arguments
     config = Config(
-        base_cmd=["whisperx"],
-        locations=args.locations,
         force=args.force,
         download_dir=args.download_dir,
         output_dir=args.output_dir,
@@ -60,7 +57,7 @@ def main():
 
     sorcerer = Sorcerer(config)
     # Files/directories/locations provided
-    for file in config.locations:
+    for file in args.locations:
         result = sorcerer.handle_location(file)
 
         if result is not None:

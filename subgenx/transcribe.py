@@ -115,7 +115,7 @@ def transcribe_with_whisperx(audio_path: str, options: Config):
     
     # 3. Save the result
     writer_opts = {
-        #todo
+        # todo: make sure these are sane defaults
         "highlight_words": False,
         "max_line_count": None,
         "max_line_width": None,

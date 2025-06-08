@@ -9,8 +9,6 @@ class Config:
     """Configuration for SubgenX transcription."""
     
     # General config
-    base_cmd: list[str]
-    locations: list[str]
     force: bool
     download_dir: str
     output_dir: str | None
