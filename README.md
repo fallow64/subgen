@@ -51,17 +51,17 @@ subgenx Pre-Parade.mp3 --model=medium
 # (default: CUDA if detected, else CPU)
 subgenx Pre-Parade.mp3 --device=cuda
 
-# Transcribe and specifying the language
+# Transcribe and specify the language
 # (for example: anime openings may mess with auto-detection)
 subgenx Toradora01.mkv --language=de
 
 # Specify the audio track
 # (some videos have multiple audio tracks)
-subgenx D:\Content\Toradora! --audio_track=1
+subgenx D:\Content\Toradora --audio_track=1
 
 # Transcribe a YouTube video by providing the URL
 subgenx https://youtu.be/CzOEMJSQRZU
 
 # Transcribe a YouTube video, as well as download the video itself
-subgenx https://youtu.be/CzOEMJSQRZU --yt_video
+subgenx https://youtu.be/CzOEMJSQRZU --include_video
 ```

@@ -73,7 +73,7 @@ class YoutubeSource(Source):
             # If a download directory is specified, set it as the "home" directory
             ydl_opts["paths"] = {"home": config.download_dir}
         
-        if config.yt_video:
+        if config.include_video:
             # If the user wants to download the video instead of just the audio
             ydl_opts["format"] = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
         else:            

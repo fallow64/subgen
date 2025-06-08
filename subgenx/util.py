@@ -19,7 +19,7 @@ class Config:
     audio_track: int
     
     # Youtube config
-    yt_video: bool
+    include_video: bool
 
     # WhisperX config
     model: str

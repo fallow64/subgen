@@ -26,7 +26,7 @@ def main():
     
     sourcing = parser.add_argument_group("Sourcing Options")
     sourcing.add_argument("--audio_track", type=int, default=0, help="Audio track to use for video files (default: 0, the first audio track)")
-    sourcing.add_argument("--yt_video", action="store_true", help="Download YouTube video files instead of just audio (default: false)")
+    sourcing.add_argument("--include_video", action="store_true", help="Include the video of a YouTube download (default: false)")
 
     # Parse the arguments, provide default values if not specified
     args = parser.parse_args()
@@ -46,7 +46,7 @@ def main():
         force=args.force,
         download_dir=args.download_dir,
         output_dir=args.output_dir,
-        yt_video=args.yt_video,
+        include_video=args.include_video,
         model=args.model,
         output_format=args.output_format,
         device=args.device,
