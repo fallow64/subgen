@@ -1,8 +1,61 @@
+import gc
 import os
 import subprocess
-import sys
-import shlex
+import torch
+import whisperx
+import numpy as np
+from whisperx import utils as wx_utils
+
 from subgenx.util import Config
+
+
+def load_audio(audio_path: str, audio_track: int) -> np.ndarray:
+    """
+    Load an audio file and return it as a normalized NumPy array. This is used by Whisper for transcription.
+    
+    whisperx.utils.load_audio is not used because it does not support selecting an audio track.
+    """
+    
+    sr = 16000 # sample rate
+    try:
+        # Launches a subprocess to decode audio while down-mixing and resampling as necessary.
+        # Requires the ffmpeg CLI to be installed.
+        cmd = [
+            "ffmpeg",
+            "-nostdin",
+            "-threads", "0",
+            "-i", audio_path,
+            "-map", f"0:a:{audio_track}",  # Select the specified audio track
+            "-f", "s16le",
+            "-ac", "1",
+            "-acodec", "pcm_s16le",
+            "-ar", str(sr),
+            "-",
+        ]
+        out = subprocess.run(cmd, capture_output=True, check=True).stdout
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
+
+    return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
+
+
+def get_writer(output_format: str, output_dir: str) -> wx_utils.ResultWriter:
+    """
+    Get the appropriate writer based on the output format.
+    
+    Does not use whisperx.utils.get_writer because it is not typed correctly. (instead of a path, it's typed as a TextIO)
+    """
+    
+    writers = {
+        "txt": wx_utils.WriteTXT,
+        "vtt": wx_utils.WriteVTT,
+        "srt": wx_utils.WriteSRT,
+        "tsv": wx_utils.WriteTSV,
+        "json": wx_utils.WriteJSON,
+        "aud": wx_utils.WriteAudacity,
+    }
+
+    return writers[output_format](output_dir)
 
 
 def transcribe_with_whisperx(audio_path: str, options: Config):
@@ -19,30 +72,56 @@ def transcribe_with_whisperx(audio_path: str, options: Config):
 
     print("Output Directory: " + output_dir)
     
-    cmd = options.base_cmd.copy()
+    # 1. Transcribe with original whisper (batched)
+    model_dir = os.path.expanduser("~/.cache/whisper")
+    model = whisperx.load_model(
+        options.model,
+        options.device,
+        compute_type=options.compute_type,
+        download_root=model_dir,
+    )
     
-    # For each field in WhisperXConfig, add the corresponding command line argument
-    cmd.extend(["--model", options.model])
-    if options.language:
-        cmd.extend(["--language", options.language])
-    if options.device:
-        cmd.extend(["--device", options.device])
-    if options.compute_type:
-        cmd.extend(["--compute_type", options.compute_type])
-        
-    cmd.extend(["--output_format", options.output_format])
-    cmd.extend(["--output_dir", output_dir])
-    cmd.append(audio_path)
+    audio = load_audio(audio_path, options.audio_track or 0)
+    result = model.transcribe(audio, language=options.language, batch_size=16)
+    result_language = result.get("language", options.language)
     
-    print(f"Running command: {shlex.join(cmd)}")
-    res = subprocess.run(cmd, check=False)
-    if res.returncode == 127:
-        print("Error: Command not found. Please ensure WhisperX is installed and available in your PATH.")
-        sys.exit(1)
-    elif res.returncode != 0:
-        print(f"Error: WhisperX transcription failed with return code {res.returncode}. Please check the input file and stderr.")
-        sys.exit(1)
-    else:
-        print(f"Transcription successful. Output saved to {output_file}.")
+    # delete model
+    gc.collect()
+    torch.cuda.empty_cache()
+    del model
     
-    return output_file
+    # 2. Align whisper output
+    model_a, metadata = whisperx.load_align_model(
+        language_code=result_language,
+        device=options.device,
+    )
+    result = whisperx.align(
+        result["segments"],
+        model_a,
+        metadata,
+        audio,
+        options.device,
+        return_char_alignments=False,
+    )
+    
+    # delete model
+    gc.collect()
+    torch.cuda.empty_cache()
+    del model_a
+    
+    # WhisperX align for some reason doesn't include langauge tag which is needed for get_writer in return for result
+    if "language" not in result:
+        result["language"] = result_language
+    
+    # 3. Save the result
+    writer_opts = {
+        #todo
+        "highlight_words": False,
+        "max_line_count": None,
+        "max_line_width": None,
+    }
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        writer = get_writer(options.output_format, output_dir)
+        writer.write_result(result, f, writer_opts)
+        f.write("Transcription complete. Output saved to: " + output_file + "\n")

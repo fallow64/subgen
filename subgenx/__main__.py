@@ -15,7 +15,7 @@ def main():
     general.add_argument("-h", "--help", action="help", help="Show this help message and exit")
     general.add_argument("-f", "--force", action="store_true", help="Force transcription even if output subtitles already exist and is up-to-date")
     general.add_argument("-d", "--download_dir", type=str, default=None, help="Directory to download YouTube videos to (default: current directory)")
-    general.add_argument("-o", "--output_dir", type=str, default=None, help="Directory to save output subtitles to (default: alongside the audio files)")
+    general.add_argument("-o", "--output_dir", type=str, default=".", help="Directory to save output subtitles to (default: alongside the audio files)")
     
     whisper = parser.add_argument_group("WhisperX Options")
     whisper.add_argument("--model", type=str, default="small", help="WhisperX model to use (default: small)")
@@ -25,7 +25,7 @@ def main():
     whisper.add_argument("--compute_type", type=str, default=None, help="Compute type for transcription (default: float16 if cuda is available, otherwise int8)")
     
     sourcing = parser.add_argument_group("Sourcing Options")
-    sourcing.add_argument("--audio_track", type=int, default=None, help="Audio track to use for video files (default: 0, the first audio track)")
+    sourcing.add_argument("--audio_track", type=int, default=0, help="Audio track to use for video files (default: 0, the first audio track)")
     sourcing.add_argument("--yt_video", action="store_true", help="Download YouTube video files instead of just audio (default: false)")
 
     # Parse the arguments, provide default values if not specified
@@ -51,8 +51,8 @@ def main():
         output_format=args.output_format,
         device=args.device,
         language=args.language,
+        audio_track=args.audio_track,
         compute_type=args.compute_type,
-        audio_track=args.audio_track
     )
 
     # The list holding the paths to the *audio* files to be processed

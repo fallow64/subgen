@@ -12,11 +12,11 @@ class Config:
     base_cmd: list[str]
     locations: list[str]
     force: bool
-    download_dir: str | None
+    download_dir: str
     output_dir: str | None
     
     # Local video config
-    audio_track: int | None
+    audio_track: int
     
     # Youtube config
     yt_video: bool
@@ -24,9 +24,9 @@ class Config:
     # WhisperX config
     model: str
     output_format: str
-    device: str | None
+    device: str
+    compute_type: str
     language: str | None
-    compute_type: str | None
 
 
 def is_file_whisper_compatible(path: str):

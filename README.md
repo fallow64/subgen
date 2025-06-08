@@ -48,11 +48,11 @@ Here are some examples:
 subgenx Pre-Parade.mp3 --model=medium
 
 # Transcribe a local audio file using CUDA
-# (default: uses the CPU)
-subgenx Pre-Parade.mp3 --device=cuda # For GPU acceleration with NVIDIA GPUs, should be automatically detected
+# (default: CUDA if detected, else CPU)
+subgenx Pre-Parade.mp3 --device=cuda
 
-# Transcribe a video file, specify the language
-# (for example: anime OPs may mess with auto-detection)
+# Transcribe and specifying the language
+# (for example: anime openings may mess with auto-detection)
 subgenx Toradora01.mkv --language=de
 
 # Specify the audio track
@@ -60,7 +60,7 @@ subgenx Toradora01.mkv --language=de
 subgenx D:\Content\Toradora! --audio_track=1
 
 # Transcribe a YouTube video by providing the URL
-subgenx https://youtu.be/fC7oUOUEEi4
+subgenx https://youtu.be/CzOEMJSQRZU
 
 # Transcribe a YouTube video, as well as download the video itself
 subgenx https://youtu.be/CzOEMJSQRZU --yt_video
