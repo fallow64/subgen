@@ -64,7 +64,7 @@ class YoutubeSource(Source):
             "outtmpl": "%(title)s.%(ext)s",
             "windowsfilenames": True,  # Ensure Windows compatibility
             "restrictfilenames": True,  # Restrict filenames to only ASCII characters
-            "paths": {"home": config.output_dir},
+            "paths": {"home": config.download_dir},
         }
         
         if config.include_video:
